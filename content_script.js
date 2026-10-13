@@ -3,6 +3,53 @@
 
 (function () {
   const THEMES = [
+    // Darker / Discord-like and other vibrant presets
+    {
+      id: 'midnight-slate',
+      name: 'Midnight Slate',
+      css: 'linear-gradient(135deg, #0b1020 0%, #1f2937 100%)'
+    },
+    {
+      id: 'obsidian-blue',
+      name: 'Obsidian Blue',
+      css: 'linear-gradient(135deg, #050814 0%, #0f1724 40%, #0b3a66 100%)'
+    },
+    {
+      id: 'deep-space',
+      name: 'Deep Space',
+      css: 'linear-gradient(135deg, #020204 0%, #0b0f1a 50%, #0f1724 100%)'
+    },
+    {
+      id: 'charcoal-duo',
+      name: 'Charcoal Duo',
+      css: 'linear-gradient(180deg, #1f2328 0%, #2b2f36 100%)'
+    },
+    {
+      id: 'midnight-purple-duo',
+      name: 'Midnight Purple Duo',
+      css: 'linear-gradient(180deg, #0f0826 0%, #321b6b 100%)'
+    },
+    {
+      id: 'forest-night',
+      name: 'Forest Night',
+      css: 'linear-gradient(135deg, #08120b 0%, #0b2a1b 100%)'
+    },
+    // Existing brighter presets kept below
+    {
+      id: 'cyberpunk-neon',
+      name: 'Cyberpunk Neon',
+      css: 'linear-gradient(135deg, #0f0c29 0%, #302b63 35%, #ff00cc 100%)'
+    },
+    {
+      id: 'sunset-wave',
+      name: 'Sunset Wave',
+      css: 'linear-gradient(135deg, #ff7b00 0%, #ffb347 28%, #ff5e7a 55%, #9b5de5 100%)'
+    },
+    {
+      id: 'aurora-glow',
+      name: 'Aurora Glow',
+      css: 'radial-gradient(circle at 20% 10%, #00ffd5 0%, rgba(0,255,213,0.15) 18%, transparent 35%), radial-gradient(circle at 80% 80%, #ff00bf 0%, rgba(255,0,191,0.15) 18%, transparent 35%), linear-gradient(135deg, #0e1d36 0%, #1d3557 40%, #2a9d8f 100%)'
+    },
     {
       id: 'vibrant-retro-1',
       name: 'Retro Neon',
@@ -16,22 +63,27 @@
     {
       id: 'discord-duotone-1',
       name: 'Discord Blue Duo',
-      css: 'linear-gradient(180deg, #7289da 0%, #99a9ee 100%)'
+      css: 'linear-gradient(180deg, #2b2f44 0%, #7289da 100%)'
     },
     {
       id: 'discord-duotone-2',
       name: 'Discord Purple Duo',
-      css: 'linear-gradient(180deg, #6e44ff 0%, #b68cff 100%)'
+      css: 'linear-gradient(180deg, #1f1140 0%, #6e44ff 100%)'
     },
     {
       id: 'vibrant-aurora',
-      name: 'Aurora Glow',
+      name: 'Aurora Glow Lite',
       css: 'radial-gradient(circle at 20% 10%, #00ffd5, transparent 20%), radial-gradient(circle at 80% 80%, #ff00bf, transparent 20%), linear-gradient(90deg,#1e3c72,#2a5298)'
     },
     {
       id: 'soft-pastel',
       name: 'Soft Pastel',
       css: 'linear-gradient(135deg, #ffd1ff 0%, #d1fdff 100%)'
+    },
+    {
+      id: 'violet-crush',
+      name: 'Violet Crush',
+      css: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 30%, #f472b6 100%)'
     }
   ];
 
@@ -50,7 +102,10 @@
     const container = document.createElement('div');
     container.id = 'yt-bg-coloring-root';
     container.innerHTML = `
-      <button id="yt-bg-toggle" title="YouTube Background Coloring">🎨</button>
+      <div id="yt-bg-top">
+        <button id="yt-bg-toggle" title="YouTube Background Coloring">🎨</button>
+        <div id="yt-bg-hint">Press Shift + Y To Hide</div>
+      </div>
       <div id="yt-bg-panel" aria-hidden="true">
         <div id="yt-bg-panel-header">
           <strong>YouTube Backgrounds</strong>
@@ -78,7 +133,7 @@
       panel.setAttribute('aria-hidden', visible ? 'true' : 'false');
     });
 
-    // close/hide the whole button (user asked for an X on the top of the button to close the extension button)
+    // close/hide the whole button
     close.addEventListener('click', async () => {
       // hide the entire root
       container.style.display = 'none';
@@ -88,7 +143,7 @@
     // enable toggle
     enabledCheckbox.addEventListener('change', async (e) => {
       const enabled = e.target.checked;
-      await setStorage(STORAGE_KEYS.ENABLED, enabled);
+      await setStorage(STORAGE_KEYS.ENABLED, !!enabled);
       applyCurrentSettings();
     });
 
@@ -101,7 +156,10 @@
       item.dataset.id = t.id;
       item.innerHTML = `<span class="yt-bg-swatch" style="background: ${t.css};"></span><span class="yt-bg-name">${t.name}</span>`;
       item.addEventListener('click', async () => {
+        // when user selects a theme, enable the extension and apply it
         await setStorage(STORAGE_KEYS.THEME, t.id);
+        await setStorage(STORAGE_KEYS.ENABLED, true);
+        if (enabledCheckbox) enabledCheckbox.checked = true;
         applyThemeById(t.id);
       });
       presetsEl.appendChild(item);
@@ -112,12 +170,7 @@
       if (e.shiftKey && (e.key === 'Y' || e.key === 'y')) {
         const hidden = container.style.display === 'none' || container.style.visibility === 'hidden';
         container.style.display = hidden ? 'block' : 'none';
-        if (!hidden) {
-          // user hid it manually, persist
-          setStorage(STORAGE_KEYS.BUTTON_HIDDEN, true);
-        } else {
-          setStorage(STORAGE_KEYS.BUTTON_HIDDEN, false);
-        }
+        setStorage(STORAGE_KEYS.BUTTON_HIDDEN, !hidden);
       }
     });
 
@@ -163,11 +216,10 @@
     // We avoid touching colors, text, sizing, layout to meet "backgrounds only" requirement.
     return `
       /* YouTube Background Coloring - injected styles */
-      html.yt-bg-coloring-active, html.yt-bg-coloring-active body, html.yt-bg-coloring-active ytd-app, html.yt-bg-coloring-active ytd-page-manager, html.yt-bg-coloring-active #content, html.yt-bg-coloring-active ytd-watch-flexy, html.yt-bg-coloring-active ytd-browse {
+      html.yt-bg-coloring-active, html.yt-bg-coloring-active body, html.yt-bg-coloring-active ytd-app, html.yt-bg-coloring-active ytd-page-manager, html.yt-bg-coloring-active #content, html.yt-bg-coloring-active ytd-browse, html.yt-bg-coloring-active ytd-watch-flexy {
         background: ${bgValue} !important;
         background-image: none !important;
         background-color: transparent !important;
-        /* keep transparency for overlays */
       }
       /* Make sure big containers that use backgrounds are also covered */
       html.yt-bg-coloring-active #page-manager, html.yt-bg-coloring-active #content, html.yt-bg-coloring-active ytd-app {
@@ -187,16 +239,15 @@
     const enabled = await getStorage(STORAGE_KEYS.ENABLED);
     const themeId = await getStorage(STORAGE_KEYS.THEME);
     const container = document.getElementById('yt-bg-coloring-root');
-    const panel = document.getElementById('yt-bg-panel');
     const enabledCheckbox = document.getElementById('yt-bg-enabled');
 
-    const isEnabled = enabled !== false; // default true
+    // default to false: only apply coloring after the user explicitly selects a theme
+    const isEnabled = enabled === true;
     if (enabledCheckbox) enabledCheckbox.checked = isEnabled;
 
-    if (isEnabled) {
+    if (isEnabled && themeId) {
       document.documentElement.classList.add('yt-bg-coloring-active');
-      if (themeId) applyThemeById(themeId);
-      else applyThemeById(THEMES[0].id);
+      applyThemeById(themeId);
     } else {
       document.documentElement.classList.remove('yt-bg-coloring-active');
       if (injectedStyle) injectedStyle.textContent = '';
@@ -236,9 +287,11 @@
       await applyCurrentSettings();
       watchForNavigation();
 
-      // ensure a default theme saved
+      // do NOT auto-select a theme; coloring remains off until user selects one
       const themeId = await getStorage(STORAGE_KEYS.THEME);
-      if (!themeId) await setStorage(STORAGE_KEYS.THEME, THEMES[0].id);
+      if (!themeId) {
+        // no default theme saved — that's intentional so the page stays normal until user acts
+      }
 
     } catch (err) {
       console.error('yt-bg-coloring init error', err);
