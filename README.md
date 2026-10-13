@@ -1,6 +1,6 @@
 # YouTube Background Coloring
 
-A small browser extension that lets you change YouTube’s page background using vibrant gradients and two‑tone (Discord‑style) looks. It only changes background visuals — it does not alter videos, text, buttons or other YouTube functionality.
+A small browser extension that lets you change YouTube’s page background using vibrant gradients and a two‑tone look. It only changes background visuals — it does not alter videos, text, buttons or other YouTube functionality.
 
 Quick summary
 - Floating control button in the top-left while browsing YouTube
