@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Background Coloring",
+  "description": "Extension allows you to change your YouTube background color with gradients and vibrant two-tone themes.",
+  "version": "1.0.0",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.youtube.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content_script.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
