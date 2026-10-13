@@ -1,51 +1,16 @@
-# YouTube Background Coloring
-
-Extension allows you to change your YouTube background color with more options than just light mode or dark mode. This extension only changes background colors and gradients. It does not change videos, text, or controls.
-
-Features
-- Floating top-left button when active
-- Close X to hide the extension button
-- On/off switch to disable the theme without removing the extension
-- Multiple vibrant, retro, and Discord-inspired color presets
-- Saves your selected theme between visits
-- Works on YouTube pages like home, browse, and watch
-- Shortcut: Shift + Y to show or hide the control button
-
-Included themes
-- Cyberpunk Neon
-- Sunset Wave
-- Aurora Glow
-- Retro Neon
-- Miami Sunset
-- Discord Blue Duo
-- Discord Purple Duo
-- Aurora Glow Lite
-- Soft Pastel
-- Violet Crush
-
-Installation
-1. Download this repository to your computer.
-2. Open Chrome or Edge and visit chrome://extensions
-3. Turn on Developer mode
-4. Click Load unpacked
-5. Select the folder with manifest.json
-6. Open YouTube and click the 🎨 button in the top-left
-
-How to use
-- Click the 🎨 button to open the panel
-- Turn the Enabled switch on or off
-- Pick a gradient or duo-tone background style
-- Click the X to hide the button
-- Press Shift + Y to bring the button back
-
-Background-only behavior
-This extension changes the background styling of YouTube page containers while leaving text, media, and controls alone. It is designed to improve visual mood without altering the actual content experience.
-
-Privacy
-This extension only stores your chosen theme and preferences locally in the browser using chrome.storage.local.
-
-Troubleshooting
-- If the toggle doesn't appear, reload YouTube or reload the extension.
-- If the background doesn't seem to apply, make sure the extension is enabled from chrome://extensions.
-- If you hid the button, press Shift + Y to show it again.
-
+{
+  "manifest_version": 3,
+  "name": "YouTube Background Coloring",
+  "description": "Changes the background look of YouTube with vibrant gradients and two-tone color themes.",
+  "version": "1.0.0",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.youtube.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content_script.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
