@@ -160,7 +160,10 @@
         await setStorage(STORAGE_KEYS.THEME, t.id);
         await setStorage(STORAGE_KEYS.ENABLED, true);
         if (enabledCheckbox) enabledCheckbox.checked = true;
-        applyThemeById(t.id);
+        // ensure the active class is present so injected CSS applies
+        document.documentElement.classList.add('yt-bg-coloring-active');
+        // apply the theme immediately and persist the state
+        await applyThemeById(t.id);
       });
       presetsEl.appendChild(item);
     });
