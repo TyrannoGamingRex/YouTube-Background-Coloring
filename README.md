@@ -1,70 +1,252 @@
-# YouTube Background Coloring
+// content_script.js
+// Content script for YouTube Background Coloring extension
 
-Extention allows you to change your YouTube background color giving you more options than just light mode or dark mode. This extension only changes background visuals — it does not modify or remove any YouTube content, controls, or text.
+(function () {
+  const THEMES = [
+    {
+      id: 'cyberpunk-neon',
+      name: 'Cyberpunk Neon',
+      css: 'linear-gradient(135deg, #0f0c29 0%, #302b63 35%, #ff00cc 100%)'
+    },
+    {
+      id: 'sunset-wave',
+      name: 'Sunset Wave',
+      css: 'linear-gradient(135deg, #ff7b00 0%, #ffb347 28%, #ff5e7a 55%, #9b5de5 100%)'
+    },
+    {
+      id: 'aurora-glow',
+      name: 'Aurora Glow',
+      css: 'radial-gradient(circle at 20% 10%, #00ffd5 0%, rgba(0,255,213,0.15) 18%, transparent 35%), radial-gradient(circle at 80% 80%, #ff00bf 0%, rgba(255,0,191,0.15) 18%, transparent 35%), linear-gradient(135deg, #0e1d36 0%, #1d3557 40%, #2a9d8f 100%)'
+    },
+    {
+      id: 'vibrant-retro-1',
+      name: 'Retro Neon',
+      css: 'linear-gradient(135deg, #ff7eb3 0%, #65d6ff 100%)'
+    },
+    {
+      id: 'vibrant-retro-2',
+      name: 'Miami Sunset',
+      css: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 25%, #f6d365 100%)'
+    },
+    {
+      id: 'discord-duotone-1',
+      name: 'Discord Blue Duo',
+      css: 'linear-gradient(180deg, #7289da 0%, #99a9ee 100%)'
+    },
+    {
+      id: 'discord-duotone-2',
+      name: 'Discord Purple Duo',
+      css: 'linear-gradient(180deg, #6e44ff 0%, #b68cff 100%)'
+    },
+    {
+      id: 'vibrant-aurora',
+      name: 'Aurora Glow Lite',
+      css: 'radial-gradient(circle at 20% 10%, #00ffd5, transparent 20%), radial-gradient(circle at 80% 80%, #ff00bf, transparent 20%), linear-gradient(90deg,#1e3c72,#2a5298)'
+    },
+    {
+      id: 'soft-pastel',
+      name: 'Soft Pastel',
+      css: 'linear-gradient(135deg, #ffd1ff 0%, #d1fdff 100%)'
+    },
+    {
+      id: 'violet-crush',
+      name: 'Violet Crush',
+      css: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 30%, #f472b6 100%)'
+    }
+  ];
 
-Features
-- Floating button in the top-left when active
-- Close "X" to hide the extension button
-- On/off toggle to enable or disable background changes without removing the UI
-- Multiple retro, vibrant, and two-tone "Discord-like" presets
-- Saves your chosen theme between pages
-- Works across YouTube pages (watch, home, browse)
-- Keyboard shortcut: Shift+Y to show/hide the control button
+  const STORAGE_KEYS = {
+    ENABLED: 'yt_bg_enabled',
+    THEME: 'yt_bg_theme',
+    BUTTON_HIDDEN: 'yt_bg_button_hidden'
+  };
 
-Files added
-- manifest.json (already present)
-- content_script.js
-- styles.css
-- README.md
+  let injectedStyle = null;
 
-How it works
-- The extension injects a small control UI in the top-left of YouTube when active.
-- Selecting a preset applies an injected stylesheet that sets backgrounds on YouTube containers only (html, body, ytd-app, #content, etc.).
-- The on/off switch disables the injected styles but keeps the UI available so you can re-enable it quickly.
-- The "X" button hides the UI; press Shift+Y to bring it back.
+  function buildThemeButton(theme) {
+    const item = document.createElement('button');
+    item.className = 'yt-bg-preset';
+    item.title = theme.name;
+    item.dataset.id = theme.id;
+    item.innerHTML = `<span class="yt-bg-swatch" style="background: ${theme.css};"></span><span class="yt-bg-name">${theme.name}</span>`;
+    item.addEventListener('click', async () => {
+      await setStorage(STORAGE_KEYS.THEME, theme.id);
+      applyThemeById(theme.id);
+    });
+    return item;
+  }
 
-Installation (Chrome / Edge)
-1. Clone or download this repository to a folder on your computer.
-2. Open Chrome and go to chrome://extensions
-3. Enable "Developer mode" (toggle in top-right).
-4. Click "Load unpacked" and select the folder for this repository (the folder that contains manifest.json).
-5. Open youtube.com. You should see a small 🎨 button in the top-left. Click it to open the panel.
+  function createUI() {
+    const container = document.createElement('div');
+    container.id = 'yt-bg-coloring-root';
+    container.innerHTML = `
+      <button id="yt-bg-toggle" title="YouTube Background Coloring">🎨</button>
+      <div id="yt-bg-panel" aria-hidden="true">
+        <div id="yt-bg-panel-header">
+          <strong>YouTube Backgrounds</strong>
+          <button id="yt-bg-close" aria-label="Close">✕</button>
+        </div>
+        <div id="yt-bg-controls">
+          <label class="yt-bg-row">Enabled: <input id="yt-bg-enabled" type="checkbox" /></label>
+        </div>
+        <div id="yt-bg-presets"></div>
+        <div id="yt-bg-footer">Tip: press Shift+Y to show/hide the control button</div>
+      </div>
+    `;
 
-Installation (Firefox Developer)
-1. Clone or download this repository to a folder on your computer.
-2. Open Firefox and go to about:debugging#/runtime/this-firefox
-3. Click "Load Temporary Add-on" and select manifest.json from this repository.
-4. Open youtube.com and use the control.
+    document.documentElement.appendChild(container);
 
-Usage
-- Click the top-left 🎨 button to open the panel.
-- Toggle "Enabled" to turn backgrounds on or off.
-- Click any preset to change the background.
-- Click the ✕ in the panel header to hide the button. Press Shift+Y to re-show it.
+    const toggle = document.getElementById('yt-bg-toggle');
+    const panel = document.getElementById('yt-bg-panel');
+    const close = document.getElementById('yt-bg-close');
+    const enabledCheckbox = document.getElementById('yt-bg-enabled');
+    const presetsEl = document.getElementById('yt-bg-presets');
 
-Screenshots / Previews
+    toggle.addEventListener('click', () => {
+      const isVisible = panel.getAttribute('aria-hidden') === 'false';
+      panel.setAttribute('aria-hidden', isVisible ? 'true' : 'false');
+    });
 
-Below are tiny inline previews of some included themes. These are simple SVG thumbnails rendered inline.
+    close.addEventListener('click', async () => {
+      container.style.display = 'none';
+      await setStorage(STORAGE_KEYS.BUTTON_HIDDEN, true);
+    });
 
-Retro Neon
+    enabledCheckbox.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      await setStorage(STORAGE_KEYS.ENABLED, enabled);
+      applyCurrentSettings();
+    });
 
-![Retro Neon](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='80'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%23ff7eb3'/><stop offset='1' stop-color='%2365d6ff'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g)' rx='8'/></svg>)
+    THEMES.forEach((theme) => {
+      presetsEl.appendChild(buildThemeButton(theme));
+    });
 
-Discord Blue Duo
+    window.addEventListener('keydown', async (e) => {
+      if (e.shiftKey && (e.key === 'Y' || e.key === 'y')) {
+        const hidden = container.style.display === 'none';
+        container.style.display = hidden ? 'block' : 'none';
+        await setStorage(STORAGE_KEYS.BUTTON_HIDDEN, !hidden);
+      }
+    });
 
-![Discord Blue Duo](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='80'><defs><linearGradient id='g2' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='%237289da'/><stop offset='1' stop-color='%2399a9ee'/></linearGradient></defs><rect width='100%' height='100%' fill='url(%23g2)' rx='8'/></svg>)
+    return container;
+  }
 
-Troubleshooting
-- If you don't see the button: ensure the content script was loaded (check extension page), or press Shift+Y to reveal it.
-- If your theme doesn't apply consistently: YouTube is a single-page app; our script observes DOM changes and re-applies styles, but if you use heavy custom YouTube skins, there may be conflicts.
-- To fully disable the extension, toggle the extension off from your browser's extensions page.
+  async function getStorage(key) {
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get([key], (res) => {
+          resolve(res[key]);
+        });
+      } catch (err) {
+        console.error('Storage get error', err);
+        resolve(undefined);
+      }
+    });
+  }
 
-Privacy & Security
-- This extension only uses chrome.storage to save your settings (enabled, selected theme, hidden state). It does not transmit any data off your machine.
+  async function setStorage(key, value) {
+    return new Promise((resolve) => {
+      try {
+        const obj = {};
+        obj[key] = value;
+        chrome.storage.local.set(obj, () => resolve());
+      } catch (err) {
+        console.error('Storage set error', err);
+        resolve();
+      }
+    });
+  }
 
-Known limitations
-- The "Close X" hides the button and stores the state locally; to permanently re-open the control you can press Shift+Y.
+  async function applyThemeById(id) {
+    const theme = THEMES.find((t) => t.id === id);
+    if (!theme) return;
+    ensureInjectedStyle();
+    injectedStyle.textContent = generateBackgroundCSS(theme.css);
+  }
 
-License
-- MIT
+  function generateBackgroundCSS(bgValue) {
+    return `
+      html.yt-bg-coloring-active,
+      html.yt-bg-coloring-active body,
+      html.yt-bg-coloring-active ytd-app,
+      html.yt-bg-coloring-active ytd-page-manager,
+      html.yt-bg-coloring-active #page-manager,
+      html.yt-bg-coloring-active #content,
+      html.yt-bg-coloring-active #guide-inner-content,
+      html.yt-bg-coloring-active ytd-browse,
+      html.yt-bg-coloring-active ytd-watch-flexy,
+      html.yt-bg-coloring-active ytd-mini-guide-renderer,
+      html.yt-bg-coloring-active app-header {
+        background: ${bgValue} !important;
+        background-color: transparent !important;
+      }
+    `;
+  }
+
+  function ensureInjectedStyle() {
+    if (injectedStyle) return;
+    injectedStyle = document.createElement('style');
+    injectedStyle.id = 'yt-bg-coloring-style';
+    document.head.appendChild(injectedStyle);
+  }
+
+  async function applyCurrentSettings() {
+    const enabled = await getStorage(STORAGE_KEYS.ENABLED);
+    const themeId = await getStorage(STORAGE_KEYS.THEME);
+    const container = document.getElementById('yt-bg-coloring-root');
+    const enabledCheckbox = document.getElementById('yt-bg-enabled');
+
+    const isEnabled = enabled !== false;
+    if (enabledCheckbox) enabledCheckbox.checked = isEnabled;
+
+    if (isEnabled) {
+      document.documentElement.classList.add('yt-bg-coloring-active');
+      if (themeId) {
+        await applyThemeById(themeId);
+      } else {
+        await applyThemeById(THEMES[0].id);
+      }
+    } else {
+      document.documentElement.classList.remove('yt-bg-coloring-active');
+      if (injectedStyle) injectedStyle.textContent = '';
+    }
+
+    const hidden = await getStorage(STORAGE_KEYS.BUTTON_HIDDEN);
+    if (container) {
+      container.style.display = hidden ? 'none' : 'block';
+    }
+  }
+
+  function watchForNavigation() {
+    const observer = new MutationObserver(() => {
+      if (document.documentElement.classList.contains('yt-bg-coloring-active')) {
+        ensureInjectedStyle();
+      }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  (async function init() {
+    try {
+      if (document.readyState === 'loading') {
+        await new Promise((resolve) => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
+      }
+
+      if (document.getElementById('yt-bg-coloring-root')) return;
+
+      createUI();
+      await applyCurrentSettings();
+      watchForNavigation();
+
+      const savedTheme = await getStorage(STORAGE_KEYS.THEME);
+      if (!savedTheme) {
+        await setStorage(STORAGE_KEYS.THEME, THEMES[0].id);
+      }
+    } catch (err) {
+      console.error('yt-bg-coloring init error', err);
+    }
+  })();
+})();
 
